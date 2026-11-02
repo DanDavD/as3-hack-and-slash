@@ -1,0 +1,15 @@
+{
+	"config": "air",
+	"compilerOptions": {
+		"source-path": ["src"],
+		"output": "bin/HackAndSlash.swf"
+	},
+	"mainClass": "Main",
+	"application": "src/Main-app.xml",
+	"airOptions": {
+		"windows": {
+			"target": "bundle",
+			"output": "dist/HackAndSlash"
+		}
+	}
+}
