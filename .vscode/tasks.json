@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "actionscript",
+			"debug": true,
+			"problemMatcher": ["$as3mxml"],
+			"group": { "kind": "build", "isDefault": true },
+			"label": "ActionScript: compile debug - asconfig.json"
+		}
+	]
+}

@@ -1,0 +1,7 @@
+bin/
+bin-debug/
+bin-release/
+dist/
+*.air
+*.p12
+*.pfx

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!-- Namespace version must match your AIR SDK (e.g. 51.5). Check the SDK's samples/descriptor-sample.xml. -->
+<application xmlns="http://ns.adobe.com/air/application/51.5">
+	<id>com.dandavd.hackandslash</id>
+	<filename>HackAndSlash</filename>
+	<name>Hack and Slash</name>
+	<versionNumber>0.1.0</versionNumber>
+	<initialWindow>
+		<content>HackAndSlash.swf</content>
+		<title>Hack and Slash</title>
+		<visible>true</visible>
+		<resizable>false</resizable>
+		<width>960</width>
+		<height>540</height>
+		<renderMode>direct</renderMode>
+	</initialWindow>
+	<supportedProfiles>desktop extendedDesktop</supportedProfiles>
+</application>
