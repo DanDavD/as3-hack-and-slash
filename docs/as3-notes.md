@@ -63,3 +63,25 @@ In AS3 the type goes after the name, separated by a colon, for variables, parame
 int is a 32 bit signed integer and Number is a 64 bit double. There is no float type at all, which is different from C#, C++ and Java. String and Boolean are what they sound like, and const works like in C#.
 
 Array is dynamic and untyped, like a Python list. Vector is the typed version, like List in C# or std::vector in C++, and it is faster. The syntax is a bit odd, since there is a dot between Vector and the angle brackets with the element type.
+
+## Events and listeners
+
+Pretty much everything in AS3 runs on events. I call addEventListener with an event type and a function, and that function gets called when the event happens. Same idea as += on a C# event. The types are constants like Event.ENTER_FRAME, so if I make a typo the compiler yells at me instead of the listener just never firing.
+
+## The stage is null in the constructor
+
+A display object only gets its stage once it is on the display list, and Main is not on it yet when its constructor runs. So touching stage in there crashes. The fix is to check if stage exists, and if not, wait for ADDED_TO_STAGE and do the setup in an init function. Kind of like Awake versus Start in Unity.
+
+## The game loop
+
+No update method to override here. The game loop is just a listener for ENTER_FRAME, which fires every frame, so 60 times a second for me. Right now the hero moves 4 pixels per frame, which means if the game lags, the hero slows down too. Delta time can wait.
+
+## Keyboard input
+
+Key events only tell me when a key goes down or up, not if it is being held. So I keep an object of key codes set to true or false and check it every frame. The listeners go on the stage because it gets every key event, no matter what has focus. I also clear everything when the window loses focus, otherwise a key released while alt tabbed stays stuck forever.
+
+## Diagonals, clamping and rotation
+
+Holding two keys gives a move of 1 on both axes, which has a length of about 1.41, so diagonals would be faster. Dividing by the length fixes it. Also y goes down in Flash, so up is negative.
+
+To keep the hero on screen I clamp x and y with Math.max and Math.min. To make it face where it walks I use Math.atan2, but that gives radians and rotation wants degrees, so I convert it. Math is radians, display objects are degrees, easy to mix up.
