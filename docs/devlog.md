@@ -11,3 +11,17 @@ I moved the broken copy out of the SDK folder so the manager stopped detecting i
 I also had the SDK path in my VS Code settings written with backslashes, which is invalid in JSON. Forward slashes fixed it.
 
 Tomorrow is Lesson 2, the game loop and keyboard input.
+
+## Day 2, November 2 2026
+
+Today the hero started moving. The goal was WASD and arrow keys, smooth movement in eight directions, and no way to walk out of the window.
+
+Before writing anything I had to fix my picture of what a Sprite is. Making one with new Sprite only creates an object in memory. Nothing draws it until it is added with addChild to something that is already on the stage. And the sword is not a property of the hero, it is a child in the hero's display list, which is why it follows the hero around.
+
+The first new thing was that the stage is null inside the Main constructor. Main is not on the display list yet when the constructor runs, so I moved all the setup into an init function that only runs once the ADDED_TO_STAGE event fires, or right away if the stage already exists.
+
+Then the game loop. AS3 has no update method to override, so I listen for ENTER_FRAME, which fires once per frame, 60 times a second for me. The keyboard listeners go on the stage, because only the focused object gets key events and the stage sees all of them. KEY_DOWN and KEY_UP just write true or false into an object keyed by the key code, and the loop reads that map every frame.
+
+Pressing two directions at once gives a vector of length about 1.41, so diagonals were going to be around 41 percent faster. I divide by the length to normalize it. After moving, I clamp the position with Math.max and Math.min so the square stays inside 960 by 540, and I point the hero toward where it walks with atan2, converted from radians to degrees.
+
+It compiled on the first try into a 1314 byte swf.
