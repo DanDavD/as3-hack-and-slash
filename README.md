@@ -2,6 +2,8 @@
 
 This is a small dungeon crawler hack and slash that I am building in pure ActionScript 3 on Adobe AIR with the Harman SDK, as a desktop app. I am using it to learn AS3 from zero.
 
+I am tracking the whole 30 day plan on a public Trello board, one card per day, so anyone can see what I am working on and what is next. https://trello.com/b/b7Z9nHBL/as3-hack-and-slash-30-days
+
 ## Scope
 
 The plan is one hero with a three hit melee combo, rooms whose doors unlock once every enemy is dead, two or three enemy types plus a boss room, and health drops, an HP UI, game over and restart.
