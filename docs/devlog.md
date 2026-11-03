@@ -25,3 +25,15 @@ Then the game loop. AS3 has no update method to override, so I listen for ENTER_
 Pressing two directions at once gives a vector of length about 1.41, so diagonals were going to be around 41 percent faster. I divide by the length to normalize it. After moving, I clamp the position with Math.max and Math.min so the square stays inside 960 by 540, and I point the hero toward where it walks with atan2, converted from radians to degrees.
 
 It compiled on the first try into a 1314 byte swf.
+
+## Day 3, November 3 2026
+
+Today was about getting code out of Main. After yesterday everything lived in one file, the drawing, the keys and the movement, and Main was already 112 lines. The goal was a Hero class in its own package, an Input class for the keys, and Main only wiring things together.
+
+I made a game folder inside src, and every file in it starts with package game. Main imports game.Hero and game.Input to use them, like a using in C#.
+
+Input got the key map and the three stage listeners straight from Main. It is not a Sprite, just a normal class that receives the stage in its constructor. I added two getters, moveX and moveY, that return minus 1, 0 or 1, so the hero does not care if I use WASD or the arrows.
+
+For the hero I went one step further and made an Entity base class that extends Sprite, because enemies are coming and they will also need a size, a speed and a way to stay on screen. Hero extends Entity, calls super with its speed and half size, and overrides draw to make the square and the sword. In AS3 the override keyword is required, leaving it out is a compile error and not just a warning like in C#. Speed is now a getter and setter over a private variable, so hero.speed reads like a field but can never go negative. The hero size is a static const, so it lives on the class instead of on each hero.
+
+Main went from 112 lines to 44, and its frame loop is a single call to hero.update with the input. It compiled on the first try into a 2250 byte swf.

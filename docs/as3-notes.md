@@ -38,6 +38,8 @@ A package in AS3 works like a namespace in C# or a package in Java. The rule is 
 
 Like Java, every file holds one public class, and the file name has to match the class name exactly.
 
+On day 3 I made my first one, a game folder with Hero, Entity and Input inside. To use them from Main I import game.Hero, like a using in C#, except AS3 imports one class at a time unless I write game with a star.
+
 ## The main class and the SWF metadata tag
 
 My Main class extends Sprite, and it has to extend Sprite or MovieClip because the runtime adds it to the screen when the game starts. Its constructor is the entry point of the whole game, my equivalent of main in C++ or Java.
@@ -85,3 +87,23 @@ Key events only tell me when a key goes down or up, not if it is being held. So 
 Holding two keys gives a move of 1 on both axes, which has a length of about 1.41, so diagonals would be faster. Dividing by the length fixes it. Also y goes down in Flash, so up is negative.
 
 To keep the hero on screen I clamp x and y with Math.max and Math.min. To make it face where it walks I use Math.atan2, but that gives radians and rotation wants degrees, so I convert it. Math is radians, display objects are degrees, easy to mix up.
+
+## Classes, extends and super
+
+Pretty much C# or Java. A class extends one parent and super calls the parent constructor, like base in C#. If I do not call super myself the compiler adds it. Entity extends Sprite and Hero extends Entity, so a Hero is still a Sprite and can go on the display list.
+
+One difference from C++: if the parent constructor calls a function the child overrides, the child version runs. Entity calls draw in its constructor and Hero's draw is the one that runs. In C++ that would call the base version.
+
+## override and access modifiers
+
+override is required when replacing a parent function, without it the compiler errors. There is no abstract, so Entity has an empty draw for subclasses to fill in.
+
+public, private and protected work like C#. internal means visible inside the same package, like package private in Java. The catch is that internal is the default when I write nothing, while in C# members default to private.
+
+## Getters and setters
+
+get and set functions are C# properties. From outside hero.speed looks like a normal variable but it runs my function, so the setter can block negative values. The getter cannot share a name with a variable, so the real value lives in a variable called speed with an underscore in front, which is the usual AS3 naming.
+
+## static
+
+Same as C#. A static member belongs to the class, not to each object, so Hero.SIZE works without any hero existing. static const is how I make class constants.
