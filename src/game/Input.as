@@ -11,6 +11,9 @@ package game
 		// keyCode -> true while held. basically a Dictionary<int, bool>
 		private var keys:Object = {};
 
+		// set on the first KEY_DOWN of the attack key, cleared when the hero reads it
+		private var attackQueued:Boolean = false;
+
 		public function Input(stage:Stage)
 		{
 			// still on the stage, it gets every key no matter what has focus
@@ -43,8 +46,21 @@ package game
 			return dy;
 		}
 
+		// true once per tap, then false until the next tap. reading it eats it
+		public function consumeAttack():Boolean
+		{
+			var pressed:Boolean = attackQueued;
+			attackQueued = false;
+			return pressed;
+		}
+
 		private function onKeyDown(e:KeyboardEvent):void
 		{
+			// KEY_DOWN repeats while the key is held (os key repeat)!! only count the first one
+			// so holding J doesnt auto combo, you have to tap
+			var isAttackKey:Boolean = e.keyCode == Keyboard.J || e.keyCode == Keyboard.SPACE;
+			if (isAttackKey && !isDown(e.keyCode)) attackQueued = true;
+
 			keys[e.keyCode] = true;
 		}
 
@@ -56,6 +72,7 @@ package game
 		private function onDeactivate(e:Event):void
 		{
 			keys = {};
+			attackQueued = false;
 		}
 	}
 }

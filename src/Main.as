@@ -2,6 +2,7 @@ package
 {
 	import flash.display.Sprite;
 	import flash.events.Event;
+	import game.ComboEvent;
 	import game.Hero;  // game folder = game package
 	import game.Input;
 
@@ -32,6 +33,10 @@ package
 			hero.y = stage.stageHeight / 2;
 			addChild(hero); // not on screen until its in the display list!!
 
+			// hero passes its combo events up, main just listens. no idea how the combo works inside
+			hero.addEventListener(ComboEvent.HIT, onHeroHit);
+			hero.addEventListener(ComboEvent.RESET, onHeroComboReset);
+
 			// the game loop
 			addEventListener(Event.ENTER_FRAME, onEnterFrame);
 		}
@@ -39,6 +44,17 @@ package
 		private function onEnterFrame(e:Event):void
 		{
 			hero.update(input);
+		}
+
+		// just traces for now (F5 only). hit detection on enemies will hang off this later
+		private function onHeroHit(e:ComboEvent):void
+		{
+			trace("hit " + e.hit);
+		}
+
+		private function onHeroComboReset(e:ComboEvent):void
+		{
+			trace("combo reset after hit " + e.hit);
 		}
 	}
 }

@@ -36,4 +36,20 @@ Input got the key map and the three stage listeners straight from Main. It is no
 
 For the hero I went one step further and made an Entity base class that extends Sprite, because enemies are coming and they will also need a size, a speed and a way to stay on screen. Hero extends Entity, calls super with its speed and half size, and overrides draw to make the square and the sword. In AS3 the override keyword is required, leaving it out is a compile error and not just a warning like in C#. Speed is now a getter and setter over a private variable, so hero.speed reads like a field but can never go negative. The hero size is a static const, so it lives on the class instead of on each hero.
 
-Main went from 112 lines to 44, and its frame loop is a single call to hero.update with the input. It compiled on the first try into a 2250 byte swf.
+Main is shorter and the heroe moves like he used to, it worked.
+
+Honestly it was pretty easy. It is the same thing I saw in my first year of university in Programacion 1, dividing the code into classes and using abstraction, just in a new language.
+
+## Day 4, November 4 2026
+
+Today the hero got its attack. The goal was a three hit combo where tapping attack chains three different swings, and waiting too long drops it back to the start.
+
+I built the combo as a state machine in its own class called Combo, with five states: idle, attack 1, attack 2, attack 3 and recovery. Each swing has a length in milliseconds, and after hit 1 or hit 2 ends there is a 350 millisecond window to press again. Pressing during a swing queues the next hit, so it does not get lost. If the window runs out the combo resets, and after hit 3 there is a 400 millisecond recovery where presses are ignored. All the timing uses getTimer, which returns milliseconds since the app started.
+
+Combo extends EventDispatcher instead of Sprite, because it never goes on screen and only needs to dispatch events. I wrote my own event class, ComboEvent, with a HIT type, a RESET type and the hit number. The Hero listens to the combo and passes the events up to Main, which for now only traces them.
+
+For the visuals, the sword now sits at the center of the hero so rotating it swings it around him. Hit 1 swings left to right, hit 2 comes back right to left, and hit 3 is a full spin with a longer sword. The hero adds an ENTER_FRAME listener when a swing starts and removes it when the swing ends. While attacking he moves slower and stops turning.
+
+The attack key is J or Space. KEY_DOWN repeats while a key is held, so Input only counts the first one, and holding the key does not chain the combo by itself.
+
+It compiled into a 4320 byte swf.
