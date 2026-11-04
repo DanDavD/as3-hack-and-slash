@@ -70,6 +70,8 @@ Array is dynamic and untyped, like a Python list. Vector is the typed version, l
 
 Pretty much everything in AS3 runs on events. I call addEventListener with an event type and a function, and that function gets called when the event happens. Same idea as += on a C# event. The types are constants like Event.ENTER_FRAME, so if I make a typo the compiler yells at me instead of the listener just never firing.
 
+removeEventListener is the minus equals. It needs the exact same type and function I added, and calling it when the listener is not there does nothing, so it is safe. Adding the same function twice does not add it twice either. A listener I forget to remove keeps running forever, so for things that only matter for a moment, like a sword swing, I add an ENTER_FRAME listener when it starts and remove it when it ends.
+
 ## The stage is null in the constructor
 
 A display object only gets its stage once it is on the display list, and Main is not on it yet when its constructor runs. So touching stage in there crashes. The fix is to check if stage exists, and if not, wait for ADDED_TO_STAGE and do the setup in an init function. Kind of like Awake versus Start in Unity.
@@ -81,6 +83,8 @@ No update method to override here. The game loop is just a listener for ENTER_FR
 ## Keyboard input
 
 Key events only tell me when a key goes down or up, not if it is being held. So I keep an object of key codes set to true or false and check it every frame. The listeners go on the stage because it gets every key event, no matter what has focus. I also clear everything when the window loses focus, otherwise a key released while alt tabbed stays stuck forever.
+
+KEY_DOWN is not fired once per press. While a key is held the operating system repeats it, so KEY_DOWN keeps coming. For a tap, like the attack key, I only count it if the key was not already down in my map.
 
 ## Diagonals, clamping and rotation
 
@@ -107,3 +111,21 @@ get and set functions are C# properties. From outside hero.speed looks like a no
 ## static
 
 Same as C#. A static member belongs to the class, not to each object, so Hero.SIZE works without any hero existing. static const is how I make class constants.
+
+## EventDispatcher and dispatchEvent
+
+Anything that extends EventDispatcher can fire events with dispatchEvent. Sprite already extends it, which is why every display object has addEventListener. A class that is never on screen, like my Combo, can just extend EventDispatcher directly instead of Sprite. It is the AS3 version of a class with a C# event on it, except the event is a string type and anyone can listen to any type.
+
+## Custom events and clone
+
+To send extra data with an event I extend Event, add my own fields and type constants, and pass the type to super. In C# the data would go in an EventArgs, here the event object itself carries it.
+
+The gotcha is clone. If an event that was already dispatched gets dispatched again, like my Hero passing the combo events up to Main, Flash dispatches a copy made with clone. If I do not override clone, the copy is a plain Event without my hit number, and a listener that expects a ComboEvent gets a type error. So every custom event overrides clone and returns a new one with the same values.
+
+## getTimer
+
+getTimer, from flash.utils, returns the milliseconds since the app started as an int. It is a free function, not a method on a class, so I import flash.utils.getTimer by itself. To time something I save getTimer when it starts and subtract later, like a Stopwatch in C# or time in Python. Unlike counting frames, it stays correct even if the game lags.
+
+## switch
+
+switch works like C and C++. Cases fall through to the next one unless there is a break, and I can stack two cases on top of each other to share code. C# only allows that when the first case is empty, and AS3 also allows switching on strings, which is how my combo states work.
