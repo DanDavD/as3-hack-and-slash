@@ -129,3 +129,17 @@ getTimer, from flash.utils, returns the milliseconds since the app started as an
 ## switch
 
 switch works like C and C++. Cases fall through to the next one unless there is a break, and I can stack two cases on top of each other to share code. C# only allows that when the first case is empty, and AS3 also allows switching on strings, which is how my combo states work.
+
+## Local and global coordinates
+
+Every display object has its own coordinate space, where its origin is its x and y and its axes turn with its rotation and stretch with its scale. A child's x and y are in its parent's space, not the screen's. So the sword's blade going from 24 to 54 along x means nothing on screen until I take the hero's position and rotation and the sword's rotation and scale into account.
+
+localToGlobal does that for me. I give it a Point in the object's own space and it returns where that point is on the stage. globalToLocal goes the other way, from the stage into some object's space. It is like transform.TransformPoint and InverseTransformPoint in Unity. To compare a blade point with an enemy box I go from sword space to global with localToGlobal, then from global to the enemy's parent space with globalToLocal, because that is the space the enemy's x and y live in.
+
+## Point and Rectangle
+
+Both live in flash.geom. Point is just an x and a y, like Vector2 without most of the math. Rectangle has x, y, width and height, and it comes with containsPoint to check if a point is inside it and intersects to check if two rectangles overlap at all. Two overlapping boxes is the classic AABB check I would write by hand in C++, here it is one call.
+
+## hitTestObject and getBounds
+
+hitTestObject checks if the bounding boxes of two display objects overlap, and getBounds returns that box as a Rectangle in whatever coordinate space I pass to it. The catch is that both include all the children. My hero's bounds include the sword, so using them for the enemy touching the hero would count a touch on the blade as a touch on the hero. They are also axis aligned, so a rotated square gets a bigger box than it looks. That is why my Entity builds its own body box from x, y and its half size.

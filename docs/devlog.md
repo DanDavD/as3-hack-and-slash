@@ -53,3 +53,17 @@ For the visuals, the sword now sits at the center of the hero so rotating it swi
 The attack key is J or Space. KEY_DOWN repeats while a key is held, so Input only counts the first one, and holding the key does not chain the combo by itself.
 
 It compiled into a 4320 byte swf.
+
+## Day 5, November 5 2026
+
+Today the hero got something to hit. The goal was an enemy that chases him, a sword that only hurts while it is swinging, damage with knockback, and an enemy that dies at 0 HP.
+
+The enemy is a red square that extends Entity, just like Hero. Every frame it walks straight at the hero at half his speed. HP and knockback went into Entity, since both of them need it. A hit lowers the HP and pushes the entity away from where the hit came from, and that push shrinks a little every frame. While an enemy is sliding back it cannot chase me or hurt me.
+
+The sword was the interesting part. The blade is a child of the hero and rotates around him, so its position on screen depends on the sword rotation, the hero rotation and the scale of the spin. I keep four points along the blade in the sword's own coordinates and convert them with localToGlobal, and Flash does all that math for me. Then I check if any point is inside the enemy box. The sword is only active while a swing is moving, and each enemy can only get hit once per swing, otherwise one slash would hit it every frame.
+
+For the enemy touching me I compare two rectangles with intersects. I did not use getBounds or hitTestObject on the hero, because his bounds include the sword, so an enemy touching the blade would count as touching me. After a hit the hero blinks and cannot be hurt again for 800 milliseconds.
+
+The full combo does 4 damage and the enemy has 5 HP. When it dies it gets removed and a new one spawns a second later.
+
+It compiled into a 6915 byte swf.
