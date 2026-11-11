@@ -67,3 +67,25 @@ For the enemy touching me I compare two rectangles with intersects. I did not us
 The full combo does 4 damage and the enemy has 5 HP. When it dies it gets removed and a new one spawns a second later.
 
 It compiled into a 6915 byte swf.
+
+## Day 6, November 6 2026
+
+Today the one red square became three kinds of enemies. The goal was two or three enemy types without copy pasting the enemy code, and making sure dead enemies are really gone and not just invisible.
+
+First I had to set the project up again, because I am on a Mac now. Same steps as day one, the JDK, the AIR SDK 51.5.1 for macOS and the two VS Code extensions. This time I checked the runtimes folder before anything else, and the mac runtime was there. The settings.json in the repo still pointed at my Windows SDK folder, so I changed it to the new path, and since Homebrew does not put Java on the PATH I gave the extension the java path in my user settings. The old code compiled and ADL opened the window on the first try.
+
+Enemy is now a base class with everything the enemies share: the HP bar, the knockback, the contact damage and an update function marked final, so no subclass can replace it and forget the knockback part. Update calls a protected think function that is empty in Enemy, and each type overrides it with its own AI. The color is a getter that each subclass overrides, because static constants are not virtual and Enemy could never see Charger's color.
+
+The Chaser is the day 5 enemy, and its class is now just a constructor and a two line think. The Charger walks slowly, and when I get close it stops, blinks white and shows a faint line where it is going to dash, then dashes in a straight line and stands there for a moment, which is the time to punish it. The direction is locked when the warning starts, otherwise it would be impossible to dodge. Hitting it cancels the charge. The Shooter keeps its distance, lights up for a moment and shoots a yellow bullet at me every 1.6 seconds. It does not create the bullet itself, it dispatches a ShotEvent and Main makes the Projectile, so Main owns every bullet and its cleanup.
+
+The bullet is not an Entity, it has no HP and no knockback, but it hurts me on touch just like an enemy. That is where an interface made sense. IHarmful has a hit box, canHurt and contactDamage, Enemy and Projectile both implement it, and Main has one touchHero function that works for both. Base class where there is code to share, interface where two unrelated things only need to answer the same questions.
+
+Main keeps the enemies in a Vector of Enemy and the bullets in a Vector of Projectile, and spawns waves of one of each, plus an extra Chaser every two waves. The loops that remove things go backwards, because removing index i while going forward shifts the next enemy into i and the loop skips it.
+
+Then the cleanup. Killing an enemy now removes the listener Main put on it, calls destroy, which takes it off the display list and removes its own listeners, and takes it out of the Vector. To check that it actually worked I put every dead enemy in a Dictionary with weak keys, which does not count as a reference, forced a garbage collection with System.gc between waves and counted what was still in there. The first thing it caught was in the Hero, not the enemies. The list of enemies already hit by the current swing was only cleared when the next swing started, so the enemy I had just killed stayed in memory until I attacked again. Now it is cleared as soon as the swing ends.
+
+I also tested what really happens with a listener nobody removes. I removed a Charger in the middle of its warning, with only removeChild, and it survived 30 forced garbage collections, with its blinking code still running every frame even though it was off the screen. A plain Sprite with an ENTER_FRAME listener, on the other hand, was freed on the first one, so it is not as simple as the old tutorials say. I am not relying on luck, every listener I add gets removed.
+
+After that fix I cleared five waves in a row and the leak check said zero every time.
+
+It compiled into a 10453 byte swf.

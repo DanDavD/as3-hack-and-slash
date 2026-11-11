@@ -12,6 +12,8 @@ The plan is one hero with a three hit melee combo, rooms whose doors unlock once
 
 You need Java JDK 17 or 21, the Harman AIR SDK, and VS Code with the ActionScript and MXML extension and the Debugger for SWF extension. I installed the SDK with the AIR SDK Manager, and a clean install from there is the safest way to get every runtime the SDK needs.
 
+On macOS I installed the JDK with Homebrew (openjdk@21) and the macOS AIR SDK into my home folder. Homebrew does not put that JDK on the PATH, so I set as3mxml.java.path in my VS Code user settings to its java binary.
+
 In VS Code, run the ActionScript Select Workspace SDK command and pick the AIR SDK. Press Ctrl Shift B to compile and F5 to run. For a Windows captive runtime build, run the ActionScript Package Adobe AIR Application command, which puts the result in the dist folder.
 
 ## Docs

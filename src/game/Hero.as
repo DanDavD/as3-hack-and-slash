@@ -138,7 +138,7 @@ package game
 			if (t >= 1)
 			{
 				sword.rotation = swingTo; // stays there during the combo window
-				swordActive = false;
+				endSwing();
 				removeEventListener(Event.ENTER_FRAME, onSwingFrame); // forget this and it runs forever
 				return;
 			}
@@ -149,10 +149,17 @@ package game
 		{
 			// remove is safe even if the listener isnt there anymore
 			removeEventListener(Event.ENTER_FRAME, onSwingFrame);
-			swordActive = false;
+			endSwing();
 			sword.rotation = 0;
 			sword.scaleX = 1;
 			dispatchEvent(e);
+		}
+
+		// clear it here and not on the next swing, it was keeping dead enemies in memory
+		private function endSwing():void
+		{
+			swordActive = false;
+			hitThisSwing.length = 0;
 		}
 
 		// main asks this every frame for each enemy. true = the blade is touching it right now
