@@ -2,25 +2,42 @@ package
 {
 	import flash.display.Sprite;
 	import flash.events.Event;
+	import flash.geom.Rectangle;
+	import flash.system.System;
+	import flash.utils.Dictionary;
 	import flash.utils.getTimer;
+	import game.Charger;
+	import game.Chaser;
 	import game.ComboEvent;
 	import game.Enemy;
 	import game.Hero;  // game folder = game package
+	import game.IHarmful;
 	import game.Input;
+	import game.Projectile;
+	import game.Shooter;
+	import game.ShotEvent;
 
 	// sets the window size, fps and bg color. same [ ] thing as attributes in C#
 	[SWF(width="960", height="540", frameRate="60", backgroundColor="#1a1a22")]
 	public class Main extends Sprite
 	{
-		private static const RESPAWN_TIME:int = 1000; // ms until a new enemy shows up
-		private static const CONTACT_DAMAGE:int = 1;
+		private static const WAVE_DELAY:int = 1200; // ms between clearing a wave and the next one
 		private static const CONTACT_KNOCKBACK:Number = 10;
 
 		private var input:Input;
 		private var hero:Hero;
-		private var enemy:Enemy; // null while dead / waiting to respawn
-		private var respawnAt:int = 0;
 		private var hud:Sprite; // hero hp bar, top left
+
+		// like List<Enemy> in C#, any enemy type fits
+		private var enemies:Vector.<Enemy> = new Vector.<Enemy>();
+		private var shots:Vector.<Projectile> = new Vector.<Projectile>();
+
+		private var wave:int = 0;
+		private var nextWaveAt:int = 0;
+		private var gcAt:int = 0;
+
+		// debug leak check. weak keys, so if a dead enemy is still in here after a gc something holds it
+		private var graveyard:Dictionary = new Dictionary(true);
 
 		// constructor = where the game starts, basically my main()
 		public function Main()
@@ -51,7 +68,7 @@ package
 			hud.y = 16;
 			addChild(hud); // added last = drawn on top of everything
 
-			spawnEnemy();
+			nextWaveAt = getTimer() + 500;
 
 			// the game loop
 			addEventListener(Event.ENTER_FRAME, onEnterFrame);
@@ -61,14 +78,26 @@ package
 		{
 			hero.update(input);
 
-			if (enemy != null)
+			// same call for every type
+			for each (var enemy:Enemy in enemies) enemy.update(hero);
+
+			checkHits();
+			updateShots();
+
+			if (enemies.length == 0)
 			{
-				enemy.update(hero);
-				checkHits();
-			}
-			else if (getTimer() >= respawnAt)
-			{
-				spawnEnemy();
+				if (nextWaveAt == 0)
+				{
+					nextWaveAt = getTimer() + WAVE_DELAY;
+					gcAt = getTimer() + WAVE_DELAY / 2;
+				}
+				else if (gcAt != 0 && getTimer() >= gcAt)
+				{
+					// halfway through the wait, in the same frame as the kill it didnt free anything
+					System.gc(); // AIR and the debug player only
+					gcAt = 0;
+				}
+				else if (getTimer() >= nextWaveAt) spawnWave();
 			}
 
 			drawHud();
@@ -76,46 +105,105 @@ package
 
 		private function checkHits():void
 		{
-			// me hitting the enemy. hero knows where the blade is, main decides what happens
-			if (hero.swordHits(enemy))
+			// backwards bc killEnemy removes from the vector, forward would skip one
+			for (var i:int = enemies.length - 1; i >= 0; i--)
 			{
-				var died:Boolean = enemy.hurt(hero.swingDamage, hero.x, hero.y, hero.swingKnockback);
-				trace("enemy hp " + enemy.hp);
-				if (died)
-				{
-					killEnemy();
-					return; // enemy is null now!!
-				}
-			}
+				var enemy:Enemy = enemies[i];
 
-			// enemy touching me. Rectangle.intersects = do the two boxes overlap at all
-			if (enemy.canHurt && hero.hitBox.intersects(enemy.hitBox))
-			{
-				if (hero.hurt(CONTACT_DAMAGE, enemy.x, enemy.y, CONTACT_KNOCKBACK))
+				// me hitting the enemy. hero knows where the blade is, main decides what happens
+				if (hero.swordHits(enemy))
 				{
-					trace("hero died");
-					hero.revive();
-					hero.x = stage.stageWidth / 2;
-					hero.y = stage.stageHeight / 2;
+					if (enemy.hurt(hero.swingDamage, hero.x, hero.y, hero.swingKnockback))
+					{
+						killEnemy(i);
+						continue; // its gone, dont check if it touches me
+					}
+				}
+
+				touchHero(enemy);
+			}
+		}
+
+		// enemies and bullets both, thats what IHarmful is for. true = touched me
+		private function touchHero(thing:IHarmful):Boolean
+		{
+			if (!thing.canHurt) return false;
+			var box:Rectangle = thing.hitBox;
+			if (!hero.hitBox.intersects(box)) return false;
+
+			var died:Boolean = hero.hurt(thing.contactDamage, box.x + box.width / 2, box.y + box.height / 2, CONTACT_KNOCKBACK);
+			if (died)
+			{
+				trace("hero died");
+				hero.revive();
+				hero.x = stage.stageWidth / 2;
+				hero.y = stage.stageHeight / 2;
+			}
+			return true;
+		}
+
+		private function updateShots():void
+		{
+			for (var i:int = shots.length - 1; i >= 0; i--)
+			{
+				var shot:Projectile = shots[i];
+				shot.update();
+				if (touchHero(shot) || shot.isOutside(stage.stageWidth, stage.stageHeight))
+				{
+					removeChild(shot);
+					shots.removeAt(i); // no listeners on it, thats all it needs
 				}
 			}
 		}
 
-		private function spawnEnemy():void
+		private function spawnWave():void
 		{
-			enemy = new Enemy();
+			nextWaveAt = 0;
+			wave++;
+
+			// should always be 0
+			var leaked:int = 0;
+			for (var key:Object in graveyard) leaked++;
+			trace("wave " + wave + " | dead enemies still in memory after gc: " + leaked);
+
+			// one of each, +1 chaser every 2 waves
+			spawn(new Chaser());
+			spawn(new Charger());
+			spawn(new Shooter());
+			for (var i:int = 1; i < wave; i += 2) spawn(new Chaser());
+		}
+
+		private function spawn(enemy:Enemy):void
+		{
 			// opposite side from the hero so it doesnt spawn on top of me
 			enemy.x = hero.x < stage.stageWidth / 2 ? stage.stageWidth - 60 : 60;
 			enemy.y = 60 + Math.random() * (stage.stageHeight - 120);
 			addChildAt(enemy, 0); // index 0 = bottom, so it walks under the hero
+
+			// only shooters dispatch it but whatever
+			enemy.addEventListener(ShotEvent.FIRED, onEnemyShot);
+			enemies.push(enemy);
 		}
 
-		private function killEnemy():void
+		private function onEnemyShot(e:ShotEvent):void
 		{
+			var shot:Projectile = new Projectile(e.fromX, e.fromY, e.dirX, e.dirY);
+			addChildAt(shot, getChildIndex(hero)); // under the hero
+			shots.push(shot);
+		}
+
+		// miss one of these and it stays in memory
+		private function killEnemy(i:int):void
+		{
+			var enemy:Enemy = enemies[i];
 			trace("enemy died");
-			removeChild(enemy); // off the display list = gone from the screen
-			enemy = null;       // and now the GC can have it (no listeners on it so nothing holds it)
-			respawnAt = getTimer() + RESPAWN_TIME;
+
+			// i added it so i remove it
+			enemy.removeEventListener(ShotEvent.FIRED, onEnemyShot);
+			enemy.destroy();     // off the screen + its own listeners
+			enemies.removeAt(i); // last reference main had
+
+			graveyard[enemy] = true;
 		}
 
 		// redrawing every frame is lazy but its 2 rects, whatever

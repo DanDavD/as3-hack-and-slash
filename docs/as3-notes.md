@@ -143,3 +143,45 @@ Both live in flash.geom. Point is just an x and a y, like Vector2 without most o
 ## hitTestObject and getBounds
 
 hitTestObject checks if the bounding boxes of two display objects overlap, and getBounds returns that box as a Rectangle in whatever coordinate space I pass to it. The catch is that both include all the children. My hero's bounds include the sword, so using them for the enemy touching the hero would count a touch on the blade as a touch on the hero. They are also axis aligned, so a rotated square gets a bigger box than it looks. That is why my Entity builds its own body box from x, y and its half size.
+
+## Base class vs interface
+
+A base class is for sharing code. My Enemy has the HP bar, the knockback and the update steps, and Chaser, Charger and Shooter only fill in what is different. An interface is only a contract, a list of functions with no code at all, for when unrelated classes need to answer the same questions. My Projectile is a Sprite and not an Entity, it has no HP, but it hurts the hero just like an enemy, so both implement IHarmful and Main checks them with the same function.
+
+Same rules as C# and Java: a class extends one parent but can implement any number of interfaces, and it can do both at once, like Enemy extends Entity implements IHarmful. The interface name starting with an I is just a convention, also from C#.
+
+## Writing an interface
+
+It is written with the interface keyword instead of class, and its functions have no body and no access modifier, because everything in an interface is public anyway. Writing public in there is actually a compile error. Getters work too, so a function get hitBox in the interface means any class with a public hitBox getter fulfills it, even if it got it from its parent like Enemy gets it from Entity.
+
+## final
+
+final on a function means subclasses cannot override it, like sealed on a method in C#, and final on a class means nothing can extend it. My Enemy update is final, so every enemy always runs the knockback and the clamp, and a subclass can only change the think part. It is the template method pattern, the base class decides the steps and the subclass fills one in.
+
+## Overriding getters and why statics are not virtual
+
+A static const belongs to one class. If Enemy reads COLOR it gets Enemy.COLOR, there is no way for it to see Charger.COLOR, because statics are not looked up through the object like normal functions. So for something each subclass changes, like the body color, I use a protected getter and override it, override protected function get bodyColor. Getters are functions, so they follow the same override rules as any other function.
+
+## More on Vector
+
+push adds at the end, removeAt removes one index and shifts everything after it, and setting length to 0 empties it, like Add, RemoveAt and Clear on a C# List. A Vector of Enemy accepts a Chaser or a Charger because they are both Enemy, the same as a List of a base class in C#.
+
+When removing while looping, go backwards. Going forward, removing index 3 moves the next element into 3, the loop goes on to 4, and that element never gets checked. Same trap as removing from a list while iterating in any language, except here there is no exception, it just silently skips.
+
+## removeChild is not delete
+
+AS3 has no delete for objects, the garbage collector frees an object once nothing references it anymore. removeChild only takes it off the screen. If anything still points at it, a Vector, a variable, a listener, it stays in memory, and any ENTER_FRAME listener on it keeps running even though nobody can see it.
+
+So killing something properly is a list. Take it off the display list, remove its listeners, and drop it from every Vector or variable that holds it. My enemies have a destroy function for their part, and Main does the rest.
+
+## Listeners and who holds whom
+
+addEventListener stores a reference to the listener inside the dispatcher. So when Main listens to an enemy, the enemy points at Main, not the other way, and that alone does not keep the enemy alive. The dangerous direction is the opposite one, an enemy listening to the stage or the hero, because then the long lived object points at the enemy and it can never be freed. For that case addEventListener has a useWeakReference parameter, the fifth one, but I would rather remove the listener myself than depend on it.
+
+ENTER_FRAME is special because it fires on every display object, on the screen or not. In my test, a Charger removed in the middle of its blinking with its own ENTER_FRAME listener still on survived 30 forced garbage collections and kept blinking invisibly. A plain Sprite with the same kind of listener was freed right away, so the behavior is not something to rely on either way. Remove what you add.
+
+## Weak Dictionary and System.gc
+
+Dictionary is the AS3 version of a C# Dictionary with objects as keys. Passing true to its constructor makes the keys weak, so being a key does not count as a reference, and when the object is collected the key just disappears from it. That makes a cheap leak detector: put every dead enemy in a weak Dictionary, force a collection, and anything still in there is being held by something.
+
+System.gc forces a full collection, but only in AIR and the debug Flash Player. It did not free things killed in the same frame, probably because the object is still on that frame's stack, so I call it a few hundred milliseconds after the wave ends and count when the next wave spawns.
