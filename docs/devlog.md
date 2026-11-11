@@ -89,3 +89,25 @@ I also tested what really happens with a listener nobody removes. I removed a Ch
 After that fix I cleared five waves in a row and the leak check said zero every time.
 
 It compiled into a 10453 byte swf.
+
+## Day 7, November 7 2026
+
+Today the game got a dungeon. The goal was a Room with walls, enemy spawns and doors, where the doors unlock when every enemy is dead and walking through one loads the next room.
+
+I did not want to place walls with a hundred drawRect calls, so a room is a text map. Each room is an array of 18 strings of 32 characters, and every character is a 30 pixel tile, so it is exactly 960 by 540. A hash is a wall, a dot is floor, D is a door, H is where the hero starts, and c, r and s are a chaser, a charger and a shooter. The three maps live in RoomMaps, and I can see the room just by looking at the code. The Room constructor reads the map with charAt, builds a Rectangle for every wall and door, remembers the spawns, and throws an Error if a row has the wrong length or there is no H.
+
+The spawns store the class itself. In AS3 a Class is a normal value, so I keep the Chaser class in an object under the letter c and later do var type:Class = s.type and new type(). It is like Activator.CreateInstance in C#. Adding a new enemy to the maps is one more line in that object.
+
+The walls were the hard part. The hero and the enemies move first and then Room.collide pushes them out of whatever they ended up inside. It does x first and then y, and each time it looks at which side they came from. Doing the axes separately means that walking diagonally into a wall slides along it and does not stop dead. The shooter bullets die when they touch a wall, and a locked door counts as a wall until the room is cleared.
+
+The doors are red with bars while locked. When the last enemy dies Main tells the room to unlock, the doors turn green and let me through, and touching one loads the next room. After the third room it goes back to the first one.
+
+Main needed one change I did not expect. Before, enemies were added at index 0 to stay under the hero, but now the room has to be under everything. So I made three Sprites as layers, room, enemies and bullets, added in that order, and everything goes into its layer. The hero is added after them so it is on top.
+
+The cleanup from yesterday works the same way. Loading a room removes the old one from its layer, and I put it in the weak Dictionary next to the dead enemies. The check printed zero after clearing the second room, so the first room was freed too.
+
+I checked the three maps with a small script, because a room I cannot beat is a bug. It looks for a path of 40 pixels wide, the size of the hero, from the start to the door, and checks that every enemy is reachable and none spawns inside a wall. All three pass. A test of Room on its own also passes: it pushes the hero out of a wall, slides him along it, blocks him at a locked door and lets him through an open one.
+
+I could not fully play it with a bot. It cleared two rooms in a row and walked through the door into the next one, but the shooter keeps its distance and the bot never got past it in room 3 in time. Room 3 needs to be played by hand.
+
+It compiled into a 13244 byte swf.
