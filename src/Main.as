@@ -2,41 +2,48 @@ package
 {
 	import flash.display.Sprite;
 	import flash.events.Event;
+	import flash.geom.Point;
 	import flash.geom.Rectangle;
 	import flash.system.System;
 	import flash.utils.Dictionary;
 	import flash.utils.getTimer;
-	import game.Charger;
-	import game.Chaser;
 	import game.ComboEvent;
 	import game.Enemy;
 	import game.Hero;  // game folder = game package
 	import game.IHarmful;
 	import game.Input;
 	import game.Projectile;
-	import game.Shooter;
+	import game.Room;
+	import game.RoomMaps;
 	import game.ShotEvent;
 
 	// sets the window size, fps and bg color. same [ ] thing as attributes in C#
 	[SWF(width="960", height="540", frameRate="60", backgroundColor="#1a1a22")]
 	public class Main extends Sprite
 	{
-		private static const WAVE_DELAY:int = 1200; // ms between clearing a wave and the next one
 		private static const CONTACT_KNOCKBACK:Number = 10;
 
 		private var input:Input;
 		private var hero:Hero;
 		private var hud:Sprite; // hero hp bar, top left
 
+		// layers, bottom to top. addChildAt(0) doesnt work anymore with a room under everything
+		private var roomLayer:Sprite;
+		private var enemyLayer:Sprite;
+		private var shotLayer:Sprite;
+
+		private var room:Room;
+		private var roomIndex:int = -1;
+		private var roomsCleared:int = 0;
+
 		// like List<Enemy> in C#, any enemy type fits
 		private var enemies:Vector.<Enemy> = new Vector.<Enemy>();
 		private var shots:Vector.<Projectile> = new Vector.<Projectile>();
 
-		private var wave:int = 0;
-		private var nextWaveAt:int = 0;
 		private var gcAt:int = 0;
+		private var leakCheckAt:int = 0;
 
-		// debug leak check. weak keys, so if a dead enemy is still in here after a gc something holds it
+		// debug leak check. weak keys, so if a dead enemy or old room is still in here after a gc something holds it
 		private var graveyard:Dictionary = new Dictionary(true);
 
 		// constructor = where the game starts, basically my main()
@@ -54,9 +61,14 @@ package
 
 			input = new Input(stage);
 
+			roomLayer = new Sprite();
+			enemyLayer = new Sprite();
+			shotLayer = new Sprite();
+			addChild(roomLayer);
+			addChild(enemyLayer);
+			addChild(shotLayer);
+
 			hero = new Hero();
-			hero.x = stage.stageWidth / 2;
-			hero.y = stage.stageHeight / 2;
 			addChild(hero); // not on screen until its in the display list!!
 
 			// hero passes its combo events up, main just listens. no idea how the combo works inside
@@ -68,7 +80,7 @@ package
 			hud.y = 16;
 			addChild(hud); // added last = drawn on top of everything
 
-			nextWaveAt = getTimer() + 500;
+			loadRoom(0);
 
 			// the game loop
 			addEventListener(Event.ENTER_FRAME, onEnterFrame);
@@ -76,31 +88,85 @@ package
 
 		private function onEnterFrame(e:Event):void
 		{
+			// remember where everyone was, the room needs it to push them out of walls
+			var oldX:Number = hero.x;
+			var oldY:Number = hero.y;
 			hero.update(input);
+			room.collide(hero, oldX, oldY);
 
 			// same call for every type
-			for each (var enemy:Enemy in enemies) enemy.update(hero);
+			for each (var enemy:Enemy in enemies)
+			{
+				oldX = enemy.x;
+				oldY = enemy.y;
+				enemy.update(hero);
+				room.collide(enemy, oldX, oldY);
+			}
 
 			checkHits();
 			updateShots();
 
-			if (enemies.length == 0)
+			if (enemies.length == 0 && room.isLocked) roomCleared();
+			else if (!room.isLocked && room.touchesDoor(hero.hitBox))
 			{
-				if (nextWaveAt == 0)
-				{
-					nextWaveAt = getTimer() + WAVE_DELAY;
-					gcAt = getTimer() + WAVE_DELAY / 2;
-				}
-				else if (gcAt != 0 && getTimer() >= gcAt)
-				{
-					// halfway through the wait, in the same frame as the kill it didnt free anything
-					System.gc(); // AIR and the debug player only
-					gcAt = 0;
-				}
-				else if (getTimer() >= nextWaveAt) spawnWave();
+				loadRoom((roomIndex + 1) % RoomMaps.LIST.length); // after the last one, back to the first
+				return; // new room, nothing else to do this frame
 			}
 
+			leakCheck();
 			drawHud();
+		}
+
+		private function roomCleared():void
+		{
+			room.unlock();
+			roomsCleared++;
+			trace("room cleared (" + roomsCleared + " in a row)");
+
+			gcAt = getTimer() + 500;
+			leakCheckAt = getTimer() + 1000;
+		}
+
+		// gc a bit after the kill (same frame didnt free anything), count a bit after that
+		private function leakCheck():void
+		{
+			if (gcAt != 0 && getTimer() >= gcAt)
+			{
+				System.gc(); // AIR and the debug player only
+				gcAt = 0;
+			}
+			else if (leakCheckAt != 0 && getTimer() >= leakCheckAt)
+			{
+				leakCheckAt = 0;
+				var leaked:int = 0;
+				for (var key:Object in graveyard) leaked++;
+				trace("still in memory after gc: " + leaked); // should always be 0
+			}
+		}
+
+		private function loadRoom(index:int):void
+		{
+			// the old one goes away like a dead enemy, off the screen and no references
+			if (room != null)
+			{
+				roomLayer.removeChild(room);
+				graveyard[room] = true;
+			}
+
+			// should already be empty when the doors open, but just in case
+			while (enemies.length > 0) killEnemy(enemies.length - 1);
+			while (shots.length > 0) removeShot(shots.length - 1);
+
+			roomIndex = index;
+			room = new Room(RoomMaps.LIST[index]);
+			roomLayer.addChild(room);
+
+			var start:Point = room.heroStart;
+			hero.x = start.x;
+			hero.y = start.y;
+
+			for each (var enemy:Enemy in room.createEnemies()) spawn(enemy);
+			trace("room " + (index + 1));
 		}
 
 		private function checkHits():void
@@ -136,8 +202,9 @@ package
 			{
 				trace("hero died");
 				hero.revive();
-				hero.x = stage.stageWidth / 2;
-				hero.y = stage.stageHeight / 2;
+				var start:Point = room.heroStart; // back to the room's start, enemies stay
+				hero.x = start.x;
+				hero.y = start.y;
 			}
 			return true;
 		}
@@ -148,37 +215,24 @@ package
 			{
 				var shot:Projectile = shots[i];
 				shot.update();
-				if (touchHero(shot) || shot.isOutside(stage.stageWidth, stage.stageHeight))
+				// walls eat bullets now
+				if (touchHero(shot) || room.hitsWall(shot.hitBox) || shot.isOutside(stage.stageWidth, stage.stageHeight))
 				{
-					removeChild(shot);
-					shots.removeAt(i); // no listeners on it, thats all it needs
+					removeShot(i);
 				}
 			}
 		}
 
-		private function spawnWave():void
+		private function removeShot(i:int):void
 		{
-			nextWaveAt = 0;
-			wave++;
-
-			// should always be 0
-			var leaked:int = 0;
-			for (var key:Object in graveyard) leaked++;
-			trace("wave " + wave + " | dead enemies still in memory after gc: " + leaked);
-
-			// one of each, +1 chaser every 2 waves
-			spawn(new Chaser());
-			spawn(new Charger());
-			spawn(new Shooter());
-			for (var i:int = 1; i < wave; i += 2) spawn(new Chaser());
+			shotLayer.removeChild(shots[i]);
+			shots.removeAt(i); // no listeners on it, thats all it needs
 		}
 
 		private function spawn(enemy:Enemy):void
 		{
-			// opposite side from the hero so it doesnt spawn on top of me
-			enemy.x = hero.x < stage.stageWidth / 2 ? stage.stageWidth - 60 : 60;
-			enemy.y = 60 + Math.random() * (stage.stageHeight - 120);
-			addChildAt(enemy, 0); // index 0 = bottom, so it walks under the hero
+			// position comes from the room map now
+			enemyLayer.addChild(enemy);
 
 			// only shooters dispatch it but whatever
 			enemy.addEventListener(ShotEvent.FIRED, onEnemyShot);
@@ -188,7 +242,7 @@ package
 		private function onEnemyShot(e:ShotEvent):void
 		{
 			var shot:Projectile = new Projectile(e.fromX, e.fromY, e.dirX, e.dirY);
-			addChildAt(shot, getChildIndex(hero)); // under the hero
+			shotLayer.addChild(shot);
 			shots.push(shot);
 		}
 

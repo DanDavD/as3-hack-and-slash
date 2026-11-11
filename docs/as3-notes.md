@@ -185,3 +185,31 @@ ENTER_FRAME is special because it fires on every display object, on the screen o
 Dictionary is the AS3 version of a C# Dictionary with objects as keys. Passing true to its constructor makes the keys weak, so being a key does not count as a reference, and when the object is collected the key just disappears from it. That makes a cheap leak detector: put every dead enemy in a weak Dictionary, force a collection, and anything still in there is being held by something.
 
 System.gc forces a full collection, but only in AIR and the debug Flash Player. It did not free things killed in the same frame, probably because the object is still on that frame's stack, so I call it a few hundred milliseconds after the wave ends and count when the next wave spawns.
+
+## Text maps and charAt
+
+A room is an Array of Strings, and charAt(col) gives one character of a row, like line[col] in C# or Python. Row and column turn into pixels by multiplying by the tile size, and adding half a tile gives the center. Drawing levels as text is much easier to read and change than a list of numbers. If a row has the wrong length I throw an Error, so a typo in a map crashes right away with a message and not with a wall in the wrong place later.
+
+## Class is a value
+
+In AS3 a class is an object too, so a variable can have the type Class and hold Chaser without making one. new type() then makes an instance, like Activator.CreateInstance or Type.GetType in C#, but checked much less. The compiler cannot know what type comes out, so I assign it to an Enemy variable and every class I put in there has to extend Enemy.
+
+## Object as a lookup table
+
+An Object with names for keys works like a small Dictionary, ENEMY_TYPES[ch] gets the class for a letter. A missing key gives undefined, and null == undefined is true, so checking != null works for both. A static const Object is only constant as a reference, the keys inside can still change, same as a readonly list in C#.
+
+## throw and try catch
+
+Same idea as C# and Java. throw new Error with a message stops everything until a catch, and without a catch the debug player shows it. The catch writes the type after the name, catch (err:Error), like the rest of AS3. I use it for things that should never happen, like a map with 17 rows.
+
+## Display list layers
+
+The order of the children in a Sprite is the draw order, last child on top. I had been using addChildAt(enemy, 0) to push things to the bottom, but that breaks as soon as something else has to be below it. Three empty Sprites as layers fix it, because whatever goes into a layer stays in that layer, and the order of the layers is decided once in init.
+
+## Colliding with walls
+
+Moving first and fixing after is simpler than checking before. The entity moves, and if its box overlaps a wall I push it out to the side it came from. Doing x and then y separately is what makes it slide, if I pushed out of both at the same time, walking diagonally into a wall would stop me completely. The side comes from comparing the position to where it was last frame, and if it did not move on that axis, from which half of the wall it is in.
+
+## cacheAsBitmap
+
+Setting it to true makes Flash render the vector drawing once into a bitmap and reuse it. It is for things with a lot of vector shapes that never change, like my walls. If the thing changes every frame it is worse, because it has to make the bitmap again every time, which is why the doors are on their own Sprite, so they can change without the walls.
